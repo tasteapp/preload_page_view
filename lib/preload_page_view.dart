@@ -74,12 +74,15 @@ class PreloadPageController extends ScrollController {
   /// The [hasClients] property can be used to check if a [PreloadPageView] is attached
   /// prior to accessing [page].
   double get page {
-    assert(positions.isNotEmpty,
-        'PageController.page cannot be accessed before a PageView is built with it.',);
     assert(
-        positions.length == 1,
-        'The page property cannot be read when multiple PageViews are attached to '
-        'the same PageController.',);
+      positions.isNotEmpty,
+      'PageController.page cannot be accessed before a PageView is built with it.',
+    );
+    assert(
+      positions.length == 1,
+      'The page property cannot be read when multiple PageViews are attached to '
+      'the same PageController.',
+    );
     final _PagePosition position = this.position;
     return position.page;
   }
@@ -523,11 +526,11 @@ class PreloadPageView extends StatefulWidget {
 
 class _PreloadPageViewState extends State<PreloadPageView> {
   int _lastReportedPage = 0;
-  int _preloadPagesCount = 1;
+  final _preloadPagesCount = ValueNotifier(1);
 
   _PreloadPageViewState(int preloadPagesCount) {
     _validatePreloadPagesCount(preloadPagesCount);
-    this._preloadPagesCount = preloadPagesCount;
+    _preloadPagesCount.value = preloadPagesCount;
   }
 
   @override
@@ -588,23 +591,26 @@ class _PreloadPageViewState extends State<PreloadPageView> {
         controller: widget.controller,
         physics: physics,
         viewportBuilder: (BuildContext context, ViewportOffset position) {
-          return Viewport(
-            cacheExtent: _preloadPagesCount < 1
-                ? 0
-                : (_preloadPagesCount == 1
-                    ? 1
-                    : widget.scrollDirection == Axis.horizontal
-                        ? MediaQuery.of(context).size.width *
-                                _preloadPagesCount - 1
-                        : MediaQuery.of(context).size.height *
-                                _preloadPagesCount - 1),
-            axisDirection: axisDirection,
-            offset: position,
-            slivers: <Widget>[
-              SliverFillViewport(
-                  viewportFraction: widget.controller.viewportFraction,
-                  delegate: widget.childrenDelegate),
-            ],
+          return ValueListenableBuilder(
+            valueListenable: _preloadPagesCount,
+            builder: (context, count, child) => Viewport(
+              cacheExtent: count < 1
+                  ? 0
+                  : count == 1
+                      ? 1
+                      : widget.scrollDirection == Axis.horizontal
+                          ? MediaQuery.of(context).size.width * count - 1
+                          : MediaQuery.of(context).size.height * count - 1,
+              axisDirection: axisDirection,
+              offset: position,
+              slivers: <Widget>[
+                child,
+              ],
+            ),
+            child: SliverFillViewport(
+              viewportFraction: widget.controller.viewportFraction,
+              delegate: widget.childrenDelegate,
+            ),
           );
         },
       ),
@@ -626,5 +632,11 @@ class _PreloadPageViewState extends State<PreloadPageView> {
         showName: false));
     description.add(FlagProperty('pageSnapping',
         value: widget.pageSnapping, ifFalse: 'snapping disabled'));
+  }
+
+  @override
+  void didUpdateWidget(PreloadPageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _preloadPagesCount.value = widget.preloadPagesCount;
   }
 }
